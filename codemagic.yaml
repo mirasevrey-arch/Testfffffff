@@ -1,0 +1,48 @@
+
+workflows:
+  neon-android:
+    name: NEON AI RedMagic APK
+    max_build_duration: 120
+    instance_type: mac_mini_m2
+
+    scripts:
+      - name: Extract ZIP and build APK
+        script: |
+          set -e
+
+          echo "Searching for ZIP..."
+          find . -maxdepth 3 -type f
+
+          ZIP_FILE=$(find . -type f -iname "NEON_AI_RedMagic_HUD_fix.zip" -not -path "*/.git/*" -print -quit)
+
+          if [ -z "$ZIP_FILE" ]; then
+            echo "ERROR: New project ZIP not found"
+            exit 1
+          fi
+
+          mkdir -p "$CM_BUILD_DIR/project_src"
+          unzip -q "$ZIP_FILE" -d "$CM_BUILD_DIR/project_src"
+
+          SETTINGS=$(find "$CM_BUILD_DIR/project_src" -type f \( -name settings.gradle -o -name settings.gradle.kts \) -not -path "*/build/*" -print -quit)
+
+          if [ -z "$SETTINGS" ]; then
+            echo "ERROR: settings.gradle not found"
+            find "$CM_BUILD_DIR/project_src" -maxdepth 5 -type f
+            exit 1
+          fi
+
+          PROJECT_DIR=$(dirname "$SETTINGS")
+          cd "$PROJECT_DIR"
+
+          echo "sdk.dir=$ANDROID_SDK_ROOT" > local.properties
+
+          if [ -f gradlew ]; then
+            chmod +x gradlew
+            ./gradlew :app:assembleDebug
+          else
+            gradle :app:assembleDebug
+          fi
+
+    artifacts:
+      - "project_src/**/build/outputs/apk/**/*.apk"
+      
